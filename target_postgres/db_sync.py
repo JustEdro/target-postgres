@@ -18,7 +18,7 @@ def column_type(schema_property):
     elif property_format == 'date-time':
         return 'timestamp without time zone'
     elif 'number' in property_type:
-        return 'numeric'
+        return 'double precision'
     elif 'integer' in property_type and 'string' in property_type:
         return 'character varying'
     elif 'integer' in property_type:
