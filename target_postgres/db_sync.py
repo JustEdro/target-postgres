@@ -65,13 +65,15 @@ def flatten_schema(d, parent_key=[], sep='__'):
                 items.extend(flatten_schema(v, parent_key + [k], sep=sep).items())
             else:
                 items.append((new_key, v))
-        else:
+        elif 'anyOf' in v.keys():
             if list(v.values())[0][0]['type'] == 'string':
                 list(v.values())[0][0]['type'] = ['null', 'string']
                 items.append((new_key, list(v.values())[0][0]))
             elif list(v.values())[0][0]['type'] == 'array':
                 list(v.values())[0][0]['type'] = ['null', 'array']
                 items.append((new_key, list(v.values())[0][0]))
+        else:
+            v['type'] = 'object'
 
     key_func = lambda item: item[0]
     sorted_items = sorted(items, key=key_func)
