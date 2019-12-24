@@ -73,7 +73,7 @@ def flatten_schema(d, parent_key=[], sep='__'):
                 list(v.values())[0][0]['type'] = ['null', 'array']
                 items.append((new_key, list(v.values())[0][0]))
         else:
-            v['type'] = 'object'
+            v['type'] = ['null', 'object']
 
     key_func = lambda item: item[0]
     sorted_items = sorted(items, key=key_func)
