@@ -35,12 +35,19 @@ def inflect_column_name(name):
     return inflection.underscore(name)
 
 
-def safe_column_name(name):
-    return '"{}"'.format(name)
+def safe_column_name(name, sanitize: bool):
+    if not sanitize:
+        return '"{}"'.format(name)
+
+    clean_name = ''.join(c if c.isalnum() else '_' for c in name)
+    clean_name = clean_name.lower()
+    if clean_name[0].isdigit():
+        clean_name = '_' + clean_name
+    return '{}'.format(clean_name)
 
 
-def column_clause(name, schema_property):
-    return '{} {}'.format(safe_column_name(name), column_type(schema_property))
+def column_clause(name, schema_property, sanitize: bool):
+    return '{} {}'.format(safe_column_name(name, sanitize), column_type(schema_property))
 
 
 def flatten_key(k, parent_key, sep):
@@ -95,8 +102,8 @@ def flatten_record(d, parent_key=[], sep='__'):
     return dict(items)
 
 
-def primary_column_names(stream_schema_message):
-    return [safe_column_name(inflect_column_name(p)) for p in stream_schema_message['key_properties']]
+def primary_column_names(stream_schema_message, sanitize: bool):
+    return [safe_column_name(inflect_column_name(p), sanitize) for p in stream_schema_message['key_properties']]
 
 
 class DbSync:
@@ -105,6 +112,8 @@ class DbSync:
         self.schema_name = self.connection_config['schema']
         self.stream_schema_message = stream_schema_message
         self.flatten_schema = flatten_schema(stream_schema_message['schema'])
+        self.sanitize_column_names = 'sanitize_column_names' in connection_config \
+                                     and connection_config['sanitize_column_names']
 
     def open_connection(self):
         conn_string = "host='{}' dbname='{}' user='{}' password='{}' port='{}'".format(
@@ -224,12 +233,12 @@ class DbSync:
 
     def primary_key_condition(self, right_table):
         stream_schema_message = self.stream_schema_message
-        names = primary_column_names(stream_schema_message)
+        names = primary_column_names(stream_schema_message, self.sanitize_column_names)
         return ' AND '.join(['s.{} = {}.{}'.format(c, right_table, c) for c in names])
 
     def primary_key_null_condition(self, right_table):
         stream_schema_message = self.stream_schema_message
-        names = primary_column_names(stream_schema_message)
+        names = primary_column_names(stream_schema_message, self.sanitize_column_names)
         return ' AND '.join(['{}.{} is null'.format(right_table, c) for c in names])
 
     def drop_temp_table(self):
@@ -238,14 +247,15 @@ class DbSync:
         return "DROP TABLE {}".format(temp_table)
 
     def column_names(self):
-        return [safe_column_name(name) for name in self.flatten_schema]
+        return [safe_column_name(name, self.sanitize_column_names) for name in self.flatten_schema]
 
     def create_table_query(self, is_temporary=False):
         stream_schema_message = self.stream_schema_message
         columns = [
             column_clause(
                 name,
-                schema
+                schema,
+                self.sanitize_column_names
             )
             for (name, schema) in self.flatten_schema.items()
         ]
@@ -262,7 +272,7 @@ class DbSync:
     def create_schema_if_not_exists(self):
         schema_name = self.connection_config['schema']
         schema_rows = self.query(
-            'SELECT schema_name FROM information_schema.schemata WHERE schema_name = %s',
+            'select schema_name from information_schema.schemata where schema_name = %s',
             (schema_name,)
         )
 
@@ -271,14 +281,14 @@ class DbSync:
 
     def get_tables(self):
         return self.query(
-            'SELECT table_name FROM information_schema.tables WHERE table_schema = %s',
+            'select table_name from information_schema.tables where table_schema = %s',
             (self.schema_name,)
         )
 
     def get_table_columns(self, table_name):
-        return self.query("""SELECT column_name, data_type
-      FROM information_schema.columns
-      WHERE lower(table_name) = %s AND lower(table_schema) = %s""", (table_name.lower(), self.schema_name.lower()))
+        return self.query("""select column_name, data_type
+      from information_schema.columns
+      where lower(table_name) = %s and lower(table_schema) = %s""", (table_name.lower(), self.schema_name.lower()))
 
     def update_columns(self):
         stream_schema_message = self.stream_schema_message
@@ -289,7 +299,8 @@ class DbSync:
         columns_to_add = [
             column_clause(
                 name,
-                properties_schema
+                properties_schema,
+                self.sanitize_column_names
             )
             for (name, properties_schema) in self.flatten_schema.items()
             if name.lower() not in columns_dict
@@ -299,10 +310,17 @@ class DbSync:
             self.add_column(column, stream)
 
         columns_to_replace = [
-            (safe_column_name(name), column_clause(
-                name,
-                properties_schema
-            ))
+            (
+                safe_column_name(
+                    name,
+                    self.sanitize_column_names
+                ),
+                column_clause(
+                    name,
+                    properties_schema,
+                    self.sanitize_column_names
+                )
+            )
             for (name, properties_schema) in self.flatten_schema.items()
             if name.lower() in columns_dict and
                columns_dict[name.lower()]['data_type'].lower() != column_type(properties_schema).lower()

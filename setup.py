@@ -3,14 +3,14 @@ from setuptools import setup
 
 setup(
     name="target-postgres",
-    version="1.1.5",
+    version="1.2.0",
     description="Singer.io target for Postgres",
     author="Statsbot",
     url="https://statsbot.co",
     classifiers=["Programming Language :: Python :: 3 :: Only"],
     py_modules=["target_postgres"],
     install_requires=[
-        "singer-python==5.2.3",
+        "singer-python==5.2.0",
         "psycopg2==2.7.5",
         "inflection==0.3.1"
     ],
