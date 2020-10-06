@@ -63,10 +63,11 @@ def flatten_key(k, parent_key, sep):
     return sep.join(inflected_key)
 
 
-def flatten_schema(d, parent_key=[], sep='__'):
+def flatten_schema(d, sanitize: bool, parent_key=[], sep='__'):
     items = []
     for k, v in d['properties'].items():
         new_key = flatten_key(k, parent_key, sep)
+        new_key = safe_column_name(new_key, sanitize)
         if 'type' in v.keys():
             if 'object' in v['type']:
                 items.extend(flatten_schema(v, parent_key + [k], sep=sep).items())
@@ -111,9 +112,9 @@ class DbSync:
         self.connection_config = connection_config
         self.schema_name = self.connection_config['schema']
         self.stream_schema_message = stream_schema_message
-        self.flatten_schema = flatten_schema(stream_schema_message['schema'])
         self.sanitize_column_names = 'sanitize_column_names' in connection_config \
                                      and connection_config['sanitize_column_names']
+        self.flatten_schema = flatten_schema(stream_schema_message['schema'], self.sanitize_column_names)
 
     def open_connection(self):
         conn_string = "host='{}' dbname='{}' user='{}' password='{}' port='{}'".format(
