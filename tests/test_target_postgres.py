@@ -241,4 +241,52 @@ def test_record_to_csv_line_unsanitized():
     csv_line = db_sync.record_to_csv_line(json.loads(record_json))
 
     assert csv_line == '"rec0WLJrwkIBLwwBW","zxagnl0m744hxi670a3mzxagnlonejlx","testid","testnullable"'
+
+def test_insert_from_temp_table_sanitized():
+    object = json.loads(schema_json)
+
+    db_sync = target_postgres.DbSync({
+        "schema": "test_schema",
+        "sanitize_column_names": True
+    }, object)
+
+    insert_line = db_sync.insert_from_temp_table()
+
+    assert insert_line == 'INSERT INTO test_schema.Applytobeapartner (id, id__submission_token_, test_object__test_id, test_object__test_nullable)\n        (SELECT s.* FROM Applytobeapartner_temp s LEFT OUTER JOIN test_schema.Applytobeapartner t ON s.id = t.id WHERE t.id is null)\n        '
+    
+def test_update_from_temp_table_sanitized():
+    object = json.loads(schema_json)
+
+    db_sync = target_postgres.DbSync({
+        "schema": "test_schema",
+        "sanitize_column_names": True
+    }, object)
+
+    insert_line = db_sync.update_from_temp_table()
+
+    assert insert_line == 'UPDATE test_schema.Applytobeapartner SET id=s.id, id__submission_token_=s.id__submission_token_, test_object__test_id=s.test_object__test_id, test_object__test_nullable=s.test_object__test_nullable FROM Applytobeapartner_temp s\n        WHERE s.id = test_schema.Applytobeapartner.id\n        '
+
+def test_insert_from_temp_table_unsanitized():
+    object = json.loads(schema_json)
+
+    db_sync = target_postgres.DbSync({
+        "schema": "test_schema",
+        "sanitize_column_names": False
+    }, object)
+
+    insert_line = db_sync.insert_from_temp_table()
+
+    assert insert_line == 'INSERT INTO test_schema.Applytobeapartner ("id", "id (submission token)", "test object__test id", "test object__test nullable")\n        (SELECT s.* FROM Applytobeapartner_temp s LEFT OUTER JOIN test_schema.Applytobeapartner t ON s."id" = t."id" WHERE t."id" is null)\n        '
+    
+def test_update_from_temp_table_unsanitized():
+    object = json.loads(schema_json)
+
+    db_sync = target_postgres.DbSync({
+        "schema": "test_schema",
+        "sanitize_column_names": False
+    }, object)
+
+    insert_line = db_sync.update_from_temp_table()
+
+    assert insert_line == 'UPDATE test_schema.Applytobeapartner SET "id"=s."id", "id (submission token)"=s."id (submission token)", "test object__test id"=s."test object__test id", "test object__test nullable"=s."test object__test nullable" FROM Applytobeapartner_temp s\n        WHERE s."id" = test_schema.Applytobeapartner."id"\n        '
     
