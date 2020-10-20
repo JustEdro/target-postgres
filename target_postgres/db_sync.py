@@ -63,11 +63,10 @@ def flatten_key(k, parent_key, sep):
     return sep.join(inflected_key)
 
 
-def flatten_schema(d, sanitize: bool, parent_key=[], sep='__'):
+def flatten_schema(d, parent_key=[], sep='__'):
     items = []
     for k, v in d['properties'].items():
         new_key = flatten_key(k, parent_key, sep)
-        new_key = safe_column_name(new_key, sanitize)
         if 'type' in v.keys():
             if 'object' in v['type']:
                 items.extend(flatten_schema(v, parent_key + [k], sep=sep).items())
@@ -114,7 +113,7 @@ class DbSync:
         self.stream_schema_message = stream_schema_message
         self.sanitize_column_names = 'sanitize_column_names' in connection_config \
                                      and connection_config['sanitize_column_names']
-        self.flatten_schema = flatten_schema(stream_schema_message['schema'], self.sanitize_column_names)
+        self.flatten_schema = flatten_schema(stream_schema_message['schema'])
 
     def open_connection(self):
         conn_string = "host='{}' dbname='{}' user='{}' password='{}' port='{}'".format(
@@ -307,7 +306,7 @@ class DbSync:
                 self.sanitize_column_names
             )
             for (name, properties_schema) in self.flatten_schema.items()
-            if name.lower() not in columns_dict
+            if safe_column_name(name.lower(), self.sanitize_column_names) not in columns_dict
         ]
 
         for column in columns_to_add:
@@ -326,8 +325,8 @@ class DbSync:
                 )
             )
             for (name, properties_schema) in self.flatten_schema.items()
-            if name.lower() in columns_dict and
-               columns_dict[name.lower()]['data_type'].lower() != column_type(properties_schema).lower()
+            if safe_column_name(name.lower(), self.sanitize_column_names) in columns_dict and
+               columns_dict[safe_column_name(name.lower(), self.sanitize_column_names)]['data_type'].lower() != column_type(properties_schema).lower()
         ]
 
         for (column_name, column) in columns_to_replace:
