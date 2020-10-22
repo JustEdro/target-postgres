@@ -102,3 +102,5 @@ tags
 singer-check-tap-data
 state.json
 .idea/
+.vscode/
+target_config.json

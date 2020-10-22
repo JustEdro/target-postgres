@@ -73,9 +73,9 @@ def persist_lines(config, lines):
             if stream not in primary_key_exists:
                 primary_key_exists[stream] = {}
 
-            # flush prepared records before a new row with the PK existing in this bath
+            # flush prepared records before a new row with the PK existing in this batch
             if primary_key_string and primary_key_string in primary_key_exists[stream]:
-                logger.debug("Encountered a PK value %s which exists in the bath, flushing", primary_key_string)
+                logger.debug("Encountered a PK value %s which exists in the batch, flushing", primary_key_string)
                 flush_records(stream, csv_files_to_load, row_counts, primary_key_exists,
                               sync, state, flushed_row_counts)
 
@@ -162,7 +162,6 @@ def main():
 
     emit_state(state)
     logger.debug("Exiting normally")
-
 
 if __name__ == '__main__':
     main()
